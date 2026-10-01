@@ -1,6 +1,7 @@
-# Weather and Air Quality Analytics Pipeline
+# Weather & Air Quality Analytics Pipeline
 
-End-to-end pipeline using Open-Meteo and OpenAQ data for Indian cities.
-Stack: Python, PySpark, SQL Server, Power BI, Excel.
+An end-to-end data engineering and analytics project that automatically collects daily weather and hourly air quality data from Open-Meteo and OpenAQ across 8 major Indian cities. The pipeline processes and transforms raw data using Python and PySpark, stores it in SQL Server, and delivers analytical insights through Power BI and Excel.
 
-Status: in progress.
+**Tech Stack:** Python • PySpark • SQL Server • Power BI • Excel
+**Automation:** Windows Task Scheduler
+**Status:** 🚧 In Progress
