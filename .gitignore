@@ -1,10 +1,30 @@
+# Environment variables
 .env
-.venv/
-data/
-logs/
+
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+
+# Data
+data/raw/
+data/processed/
+data/archive/
+
+# Logs
+logs/
+*.log
+
+# Jupyter
 .ipynb_checkpoints/
-spark-warehouse/
-metastore_db/
-derby.log
+
+# VS Code
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
