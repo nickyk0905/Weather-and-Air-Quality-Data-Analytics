@@ -1,5 +1,7 @@
 import csv
 import os
+import time
+
 from pathlib import Path
 from datetime import datetime
 
@@ -37,9 +39,12 @@ OUTPUT_DIR.mkdir(
 
 load_dotenv()
 
-api_key = os.getenv("OPENAQ_API_KEY")
+api_key = os.getenv(
+    "OPENAQ_API_KEY"
+)
 
 if not api_key:
+
     raise ValueError(
         "OPENAQ_API_KEY not found in .env file."
     )
@@ -68,41 +73,49 @@ LOCATIONS_URL = (
 # --------------------------------------------------
 
 cities = [
+
     {
         "city": "Delhi",
         "latitude": 28.6139,
         "longitude": 77.2090
     },
+
     {
         "city": "Mumbai",
         "latitude": 19.0760,
         "longitude": 72.8777
     },
+
     {
         "city": "Bengaluru",
         "latitude": 12.9716,
         "longitude": 77.5946
     },
+
     {
         "city": "Chennai",
         "latitude": 13.0827,
         "longitude": 80.2707
     },
+
     {
         "city": "Kolkata",
         "latitude": 22.5726,
         "longitude": 88.3639
     },
+
     {
         "city": "Hyderabad",
         "latitude": 17.3850,
         "longitude": 78.4867
     },
+
     {
         "city": "Pune",
         "latitude": 18.5204,
         "longitude": 73.8567
     },
+
     {
         "city": "Ahmedabad",
         "latitude": 23.0225,
@@ -112,15 +125,15 @@ cities = [
 
 
 # --------------------------------------------------
-# Timestamp when this ingestion script started
+# Timestamp when ingestion starts
 # --------------------------------------------------
 
 execution_timestamp = datetime.now().strftime(
-    "%Y-%m-%d %H:%M"
+    "%Y-%m-%d %H:%M:%S"
 )
 
 print(
-    f"\nIngestion execution time: "
+    f"\nAir-quality ingestion started at: "
     f"{execution_timestamp}"
 )
 
@@ -130,72 +143,162 @@ print(
 # --------------------------------------------------
 
 fieldnames = [
+
     "timestamp",
+
     "city",
+
     "location_id",
+
     "sensor_id",
+
     "parameter",
+
     "value",
+
     "latitude",
+
     "longitude"
 ]
 
 
 # --------------------------------------------------
-# Find OpenAQ monitoring location
+# Generic API request with retries
 # --------------------------------------------------
 
-def find_location(latitude, longitude):
+def make_request(
+    url,
+    params=None,
+    retries=3,
+    delay=5
+):
+
+    for attempt in range(
+        1,
+        retries + 1
+    ):
+
+        try:
+
+            response = requests.get(
+
+                url,
+
+                headers=headers,
+
+                params=params,
+
+                timeout=30
+            )
+
+            response.raise_for_status()
+
+            return response
+
+
+        except requests.exceptions.RequestException as error:
+
+            print(
+                f"Request failed "
+                f"(attempt {attempt}/{retries}): "
+                f"{error}"
+            )
+
+
+            if attempt < retries:
+
+                print(
+                    f"Retrying in "
+                    f"{delay} seconds..."
+                )
+
+                time.sleep(delay)
+
+
+    return None
+
+
+# --------------------------------------------------
+# Find OpenAQ location
+# --------------------------------------------------
+
+def find_location(
+    latitude,
+    longitude
+):
 
     params = {
-        "coordinates": f"{latitude},{longitude}",
-        "radius": 25000,
-        "limit": 10
+
+        "coordinates":
+            f"{latitude},{longitude}",
+
+        "radius":
+            25000,
+
+        "limit":
+            10
     }
 
-    response = requests.get(
+
+    response = make_request(
         LOCATIONS_URL,
-        headers=headers,
-        params=params,
-        timeout=30
+        params
     )
 
-    response.raise_for_status()
+
+    if response is None:
+
+        return None
+
 
     data = response.json()
+
 
     locations = data.get(
         "results",
         []
     )
 
+
     if not locations:
+
         return None
+
 
     return locations[0]
 
 
 # --------------------------------------------------
-# Get sensor metadata
+# Get sensors
 # --------------------------------------------------
 
-def get_sensors(location_id):
+def get_sensors(
+    location_id
+):
 
     url = (
         "https://api.openaq.org/v3/"
         f"locations/{location_id}/sensors"
     )
 
-    response = requests.get(
+
+    response = make_request(
+
         url,
-        headers=headers,
-        params={"limit": 100},
-        timeout=30
+
+        params={
+            "limit": 100
+        }
     )
 
-    response.raise_for_status()
+
+    if response is None:
+
+        return []
+
 
     data = response.json()
+
 
     return data.get(
         "results",
@@ -207,23 +310,33 @@ def get_sensors(location_id):
 # Get latest measurements
 # --------------------------------------------------
 
-def get_latest_measurements(location_id):
+def get_latest_measurements(
+    location_id
+):
 
     url = (
         "https://api.openaq.org/v3/"
         f"locations/{location_id}/latest"
     )
 
-    response = requests.get(
+
+    response = make_request(
+
         url,
-        headers=headers,
-        params={"limit": 100},
-        timeout=30
+
+        params={
+            "limit": 100
+        }
     )
 
-    response.raise_for_status()
+
+    if response is None:
+
+        return []
+
 
     data = response.json()
+
 
     return data.get(
         "results",
@@ -239,10 +352,12 @@ for city in cities:
 
     city_name = city["city"]
 
+
     print(
         f"\nSearching OpenAQ location "
         f"for {city_name}..."
     )
+
 
     try:
 
@@ -251,9 +366,12 @@ for city in cities:
         # --------------------------------------------------
 
         location = find_location(
+
             city["latitude"],
+
             city["longitude"]
         )
+
 
         if location is None:
 
@@ -264,10 +382,13 @@ for city in cities:
 
             continue
 
+
         location_id = location["id"]
 
+
         print(
-            f"Location found: {location_id}"
+            f"Location found: "
+            f"{location_id}"
         )
 
 
@@ -279,28 +400,34 @@ for city in cities:
             location_id
         )
 
+
         sensor_info = {}
+
 
         for sensor in sensors:
 
             sensor_id = sensor["id"]
+
 
             parameter = sensor.get(
                 "parameter",
                 {}
             )
 
+
             sensor_info[sensor_id] = {
 
-                "parameter": parameter.get(
-                    "name",
-                    "unknown"
-                ),
+                "parameter":
+                    parameter.get(
+                        "name",
+                        "unknown"
+                    ),
 
-                "unit": parameter.get(
-                    "units",
-                    ""
-                )
+                "unit":
+                    parameter.get(
+                        "units",
+                        ""
+                    )
             }
 
 
@@ -308,9 +435,12 @@ for city in cities:
         # Get latest measurements
         # --------------------------------------------------
 
-        measurements = get_latest_measurements(
-            location_id
+        measurements = (
+            get_latest_measurements(
+                location_id
+            )
         )
+
 
         if not measurements:
 
@@ -327,69 +457,94 @@ for city in cities:
         # --------------------------------------------------
 
         output_file = (
+
             OUTPUT_DIR
             / f"{city_name}.csv"
         )
 
 
         # --------------------------------------------------
-        # Read existing records
+        # Existing records
         # --------------------------------------------------
 
         existing_records = set()
 
+
         if output_file.exists():
 
             with open(
+
                 output_file,
+
                 "r",
+
                 newline="",
+
                 encoding="utf-8"
+
             ) as file:
 
-                reader = csv.DictReader(file)
+                reader = csv.DictReader(
+                    file
+                )
+
 
                 for row in reader:
 
                     record_key = (
+
                         row["timestamp"],
+
                         row["sensor_id"]
                     )
+
 
                     existing_records.add(
                         record_key
                     )
 
 
-        file_exists = output_file.exists()
+        file_exists = (
+            output_file.exists()
+        )
+
 
         new_records = 0
 
 
         # --------------------------------------------------
-        # Append new measurements
+        # Append measurements
         # --------------------------------------------------
 
         with open(
+
             output_file,
+
             "a",
+
             newline="",
+
             encoding="utf-8"
+
         ) as file:
 
+
             writer = csv.DictWriter(
+
                 file,
+
                 fieldnames=fieldnames
             )
 
 
-            # --------------------------------------------------
             # Write header
-            # --------------------------------------------------
 
             if (
+
                 not file_exists
+
                 or output_file.stat().st_size == 0
+
             ):
 
                 writer.writeheader()
@@ -401,45 +556,60 @@ for city in cities:
 
             for measurement in measurements:
 
-                sensor_id = measurement.get(
-                    "sensorsId"
+                sensor_id = (
+                    measurement.get(
+                        "sensorsId"
+                    )
                 )
 
+
                 if sensor_id is None:
+
                     continue
 
 
                 # --------------------------------------------------
-                # Get parameter and unit
+                # Sensor metadata
                 # --------------------------------------------------
 
                 info = sensor_info.get(
                     sensor_id
                 )
 
+
                 if info is None:
 
                     print(
-                        f"Sensor metadata not found: "
+                        f"Sensor metadata "
+                        f"not found: "
                         f"{sensor_id}"
                     )
 
                     continue
 
-                parameter = info["parameter"]
 
-                unit = info["unit"]
+                parameter = (
+                    info["parameter"]
+                )
+
+                unit = (
+                    info["unit"]
+                )
 
 
                 # --------------------------------------------------
                 # Measurement value
                 # --------------------------------------------------
 
-                value = measurement.get(
-                    "value"
+                value = (
+                    measurement.get(
+                        "value"
+                    )
                 )
 
+
                 if value is None:
+
                     continue
 
 
@@ -450,13 +620,15 @@ for city in cities:
                 if unit:
 
                     value_with_unit = (
+
                         f"{value} {unit}"
+
                     )
 
                 else:
 
-                    value_with_unit = str(
-                        value
+                    value_with_unit = (
+                        str(value)
                     )
 
 
@@ -464,32 +636,48 @@ for city in cities:
                 # Coordinates
                 # --------------------------------------------------
 
-                coordinates = measurement.get(
-                    "coordinates",
-                    {}
+                coordinates = (
+                    measurement.get(
+                        "coordinates",
+                        {}
+                    )
                 )
 
-                latitude = coordinates.get(
-                    "latitude"
+
+                latitude = (
+                    coordinates.get(
+                        "latitude"
+                    )
                 )
 
-                longitude = coordinates.get(
-                    "longitude"
+
+                longitude = (
+                    coordinates.get(
+                        "longitude"
+                    )
                 )
 
 
                 # --------------------------------------------------
                 # Duplicate check
                 #
-                # Timestamp = script execution time
+                # Timestamp represents the
+                # ingestion execution time.
                 # --------------------------------------------------
 
                 record_key = (
+
                     execution_timestamp,
+
                     str(sensor_id)
                 )
 
-                if record_key in existing_records:
+
+                if (
+                    record_key
+                    in existing_records
+                ):
+
                     continue
 
 
@@ -522,6 +710,7 @@ for city in cities:
 
                     "longitude":
                         longitude
+
                 })
 
 
@@ -529,11 +718,12 @@ for city in cities:
                     record_key
                 )
 
+
                 new_records += 1
 
 
         # --------------------------------------------------
-        # City result
+        # Result
         # --------------------------------------------------
 
         print(
@@ -541,26 +731,20 @@ for city in cities:
             f"{new_records}"
         )
 
+
         print(
-            f"Saved → {output_file.name}"
+            f"Saved → "
+            f"{output_file.name}"
         )
 
-
-    # --------------------------------------------------
-    # API errors
-    # --------------------------------------------------
 
     except requests.exceptions.RequestException as error:
 
         print(
-            f"API error for {city_name}: "
-            f"{error}"
+            f"API request failed for "
+            f"{city_name}: {error}"
         )
 
-
-    # --------------------------------------------------
-    # Data errors
-    # --------------------------------------------------
 
     except (
         KeyError,
@@ -569,8 +753,8 @@ for city in cities:
     ) as error:
 
         print(
-            f"Data error for {city_name}: "
-            f"{error}"
+            f"Data processing error for "
+            f"{city_name}: {error}"
         )
 
 
