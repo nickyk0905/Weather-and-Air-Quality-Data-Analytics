@@ -1,16 +1,29 @@
 import csv
 import os
 from pathlib import Path
+from datetime import datetime
 
 import requests
 from dotenv import load_dotenv
 
 
+# --------------------------------------------------
 # Project root
+# --------------------------------------------------
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
+
+# --------------------------------------------------
 # Raw air-quality data folder
-OUTPUT_DIR = PROJECT_ROOT / "data" / "raw" / "air_quality"
+# --------------------------------------------------
+
+OUTPUT_DIR = (
+    PROJECT_ROOT
+    / "data"
+    / "raw"
+    / "air_quality"
+)
 
 OUTPUT_DIR.mkdir(
     parents=True,
@@ -18,7 +31,10 @@ OUTPUT_DIR.mkdir(
 )
 
 
+# --------------------------------------------------
 # Load environment variables
+# --------------------------------------------------
+
 load_dotenv()
 
 api_key = os.getenv("OPENAQ_API_KEY")
@@ -29,30 +45,90 @@ if not api_key:
     )
 
 
+# --------------------------------------------------
 # OpenAQ API authentication
+# --------------------------------------------------
+
 headers = {
     "X-API-Key": api_key
 }
 
 
+# --------------------------------------------------
 # OpenAQ locations API
-LOCATIONS_URL = "https://api.openaq.org/v3/locations"
+# --------------------------------------------------
+
+LOCATIONS_URL = (
+    "https://api.openaq.org/v3/locations"
+)
 
 
+# --------------------------------------------------
 # Indian cities
+# --------------------------------------------------
+
 cities = [
-    {"city": "Delhi", "latitude": 28.6139, "longitude": 77.2090},
-    {"city": "Mumbai", "latitude": 19.0760, "longitude": 72.8777},
-    {"city": "Bengaluru", "latitude": 12.9716, "longitude": 77.5946},
-    {"city": "Chennai", "latitude": 13.0827, "longitude": 80.2707},
-    {"city": "Kolkata", "latitude": 22.5726, "longitude": 88.3639},
-    {"city": "Hyderabad", "latitude": 17.3850, "longitude": 78.4867},
-    {"city": "Pune", "latitude": 18.5204, "longitude": 73.8567},
-    {"city": "Ahmedabad", "latitude": 23.0225, "longitude": 72.5714},
+    {
+        "city": "Delhi",
+        "latitude": 28.6139,
+        "longitude": 77.2090
+    },
+    {
+        "city": "Mumbai",
+        "latitude": 19.0760,
+        "longitude": 72.8777
+    },
+    {
+        "city": "Bengaluru",
+        "latitude": 12.9716,
+        "longitude": 77.5946
+    },
+    {
+        "city": "Chennai",
+        "latitude": 13.0827,
+        "longitude": 80.2707
+    },
+    {
+        "city": "Kolkata",
+        "latitude": 22.5726,
+        "longitude": 88.3639
+    },
+    {
+        "city": "Hyderabad",
+        "latitude": 17.3850,
+        "longitude": 78.4867
+    },
+    {
+        "city": "Pune",
+        "latitude": 18.5204,
+        "longitude": 73.8567
+    },
+    {
+        "city": "Ahmedabad",
+        "latitude": 23.0225,
+        "longitude": 72.5714
+    }
 ]
 
 
+# --------------------------------------------------
+# Timestamp when this ingestion script started
+# --------------------------------------------------
+
+execution_timestamp = datetime.now().strftime(
+    "%Y-%m-%d %H:%M"
+)
+
+print(
+    f"\nIngestion execution time: "
+    f"{execution_timestamp}"
+)
+
+
+# --------------------------------------------------
 # CSV columns
+# --------------------------------------------------
+
 fieldnames = [
     "timestamp",
     "city",
@@ -64,6 +140,10 @@ fieldnames = [
     "longitude"
 ]
 
+
+# --------------------------------------------------
+# Find OpenAQ monitoring location
+# --------------------------------------------------
 
 def find_location(latitude, longitude):
 
@@ -95,10 +175,14 @@ def find_location(latitude, longitude):
     return locations[0]
 
 
+# --------------------------------------------------
+# Get sensor metadata
+# --------------------------------------------------
+
 def get_sensors(location_id):
 
     url = (
-        f"https://api.openaq.org/v3/"
+        "https://api.openaq.org/v3/"
         f"locations/{location_id}/sensors"
     )
 
@@ -119,10 +203,14 @@ def get_sensors(location_id):
     )
 
 
+# --------------------------------------------------
+# Get latest measurements
+# --------------------------------------------------
+
 def get_latest_measurements(location_id):
 
     url = (
-        f"https://api.openaq.org/v3/"
+        "https://api.openaq.org/v3/"
         f"locations/{location_id}/latest"
     )
 
@@ -143,12 +231,17 @@ def get_latest_measurements(location_id):
     )
 
 
+# --------------------------------------------------
+# Process each city
+# --------------------------------------------------
+
 for city in cities:
 
     city_name = city["city"]
 
     print(
-        f"\nSearching OpenAQ location for {city_name}..."
+        f"\nSearching OpenAQ location "
+        f"for {city_name}..."
     )
 
     try:
@@ -165,7 +258,8 @@ for city in cities:
         if location is None:
 
             print(
-                f"No OpenAQ location found for {city_name}"
+                f"No OpenAQ location found "
+                f"for {city_name}"
             )
 
             continue
@@ -197,10 +291,12 @@ for city in cities:
             )
 
             sensor_info[sensor_id] = {
+
                 "parameter": parameter.get(
                     "name",
                     "unknown"
                 ),
+
                 "unit": parameter.get(
                     "units",
                     ""
@@ -219,7 +315,8 @@ for city in cities:
         if not measurements:
 
             print(
-                f"No measurements found for {city_name}"
+                f"No measurements found "
+                f"for {city_name}"
             )
 
             continue
@@ -230,8 +327,8 @@ for city in cities:
         # --------------------------------------------------
 
         output_file = (
-            OUTPUT_DIR /
-            f"{city_name}.csv"
+            OUTPUT_DIR
+            / f"{city_name}.csv"
         )
 
 
@@ -286,7 +383,10 @@ for city in cities:
             )
 
 
-            # Write header for new/empty file
+            # --------------------------------------------------
+            # Write header
+            # --------------------------------------------------
+
             if (
                 not file_exists
                 or output_file.stat().st_size == 0
@@ -294,6 +394,10 @@ for city in cities:
 
                 writer.writeheader()
 
+
+            # --------------------------------------------------
+            # Process measurements
+            # --------------------------------------------------
 
             for measurement in measurements:
 
@@ -305,7 +409,10 @@ for city in cities:
                     continue
 
 
-                # Get parameter + unit
+                # --------------------------------------------------
+                # Get parameter and unit
+                # --------------------------------------------------
+
                 info = sensor_info.get(
                     sensor_id
                 )
@@ -319,33 +426,9 @@ for city in cities:
 
                     continue
 
-
                 parameter = info["parameter"]
 
                 unit = info["unit"]
-
-
-                # --------------------------------------------------
-                # Timestamp
-                # --------------------------------------------------
-
-                datetime_info = measurement.get(
-                    "datetime",
-                    {}
-                )
-
-                timestamp = datetime_info.get(
-                    "local"
-                )
-
-                if not timestamp:
-                    continue
-
-                timestamp = (
-                    timestamp
-                    .replace("T", " ")
-                    [:16]
-                )
 
 
                 # --------------------------------------------------
@@ -360,7 +443,10 @@ for city in cities:
                     continue
 
 
-                # Add unit directly to the value
+                # --------------------------------------------------
+                # Add unit to value
+                # --------------------------------------------------
+
                 if unit:
 
                     value_with_unit = (
@@ -394,10 +480,12 @@ for city in cities:
 
                 # --------------------------------------------------
                 # Duplicate check
+                #
+                # Timestamp = script execution time
                 # --------------------------------------------------
 
                 record_key = (
-                    timestamp,
+                    execution_timestamp,
                     str(sensor_id)
                 )
 
@@ -411,21 +499,29 @@ for city in cities:
 
                 writer.writerow({
 
-                    "timestamp": timestamp,
+                    "timestamp":
+                        execution_timestamp,
 
-                    "city": city_name,
+                    "city":
+                        city_name,
 
-                    "location_id": location_id,
+                    "location_id":
+                        location_id,
 
-                    "sensor_id": sensor_id,
+                    "sensor_id":
+                        sensor_id,
 
-                    "parameter": parameter,
+                    "parameter":
+                        parameter,
 
-                    "value": value_with_unit,
+                    "value":
+                        value_with_unit,
 
-                    "latitude": latitude,
+                    "latitude":
+                        latitude,
 
-                    "longitude": longitude
+                    "longitude":
+                        longitude
                 })
 
 
@@ -435,6 +531,10 @@ for city in cities:
 
                 new_records += 1
 
+
+        # --------------------------------------------------
+        # City result
+        # --------------------------------------------------
 
         print(
             f"New measurements added: "
@@ -446,12 +546,21 @@ for city in cities:
         )
 
 
+    # --------------------------------------------------
+    # API errors
+    # --------------------------------------------------
+
     except requests.exceptions.RequestException as error:
 
         print(
-            f"API error for {city_name}: {error}"
+            f"API error for {city_name}: "
+            f"{error}"
         )
 
+
+    # --------------------------------------------------
+    # Data errors
+    # --------------------------------------------------
 
     except (
         KeyError,
@@ -460,10 +569,15 @@ for city in cities:
     ) as error:
 
         print(
-            f"Data error for {city_name}: {error}"
+            f"Data error for {city_name}: "
+            f"{error}"
         )
 
 
+# --------------------------------------------------
+# Completion
+# --------------------------------------------------
+
 print(
-    "\nAir-quality ingestion completed."
+    "\nAir-quality ingestion completed.\n"
 )
